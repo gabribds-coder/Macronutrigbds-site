@@ -8,6 +8,7 @@ App web (PWA, funciona offline e pode ser instalado no celular) para:
 - **Diário alimentar livre**: base TACO/USDA + alimentos personalizados.
 - **Leitor de código de barras** pela câmera: busca o produto na base gratuita Open Food Facts e preenche os valores; produtos salvos são reconhecidos na hora nas próximas leituras.
 - **Peso diário com tendência**, % de gordura, massa magra × massa gorda.
+- **Fotos de evolução semanais** (Antes, Semana 1, 2…): banner na tela Hoje, comparativo antes × depois com controle deslizante, linha do tempo e banner lado a lado para compartilhar. Fotos ficam só no aparelho e entram no backup.
 - **Gasto calórico adaptativo** (estilo MacroFactor) após ~3 semanas de registros.
 
 Os dados ficam salvos no próprio aparelho (exportar/importar backup em *Perfil*).

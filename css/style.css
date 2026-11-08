@@ -92,3 +92,34 @@ svg.chart { width: 100%; height: auto; display: block; }
 .scan-line { position: absolute; left: 10%; right: 10%; top: 50%; height: 2px; background: #ef4444; box-shadow: 0 0 8px #ef4444; }
 .scan-msg { text-align: center; margin: 10px 0; font-size: 14px; }
 #cfCard { scroll-margin-top: 70px; }
+.tabs button { font-size: 12px; }
+.linkbtn { background: none; border: 0; padding: 0; color: inherit; font: inherit; font-weight: 700; text-decoration: underline; }
+.evo-strip { display: flex; gap: 8px; overflow-x: auto; margin: 10px 0 6px; cursor: pointer; scroll-snap-type: x mandatory; }
+.evo-strip figure { margin: 0; flex: 0 0 31%; scroll-snap-align: start; }
+.evo-strip img { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 10px; display: block; background: var(--line); }
+.evo-strip figcaption { font-size: 12px; text-align: center; color: var(--muted); margin-top: 3px; }
+.seg { display: flex; background: var(--bg); border-radius: 10px; padding: 3px; margin-bottom: 10px; }
+.seg button { flex: 1; border: 0; background: none; padding: 8px; border-radius: 8px; color: var(--muted); }
+.seg button.on { background: var(--card); color: var(--text); font-weight: 700; box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+.ba { position: relative; aspect-ratio: 3 / 4; border-radius: 12px; overflow: hidden; background: #000; user-select: none; }
+.ba > img, .ba-top img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.ba-top { position: absolute; inset: 0; clip-path: inset(0 calc(100% - var(--pos)) 0 0); }
+.ba-bar { position: absolute; top: 0; bottom: 0; left: var(--pos); width: 3px; margin-left: -1.5px; background: #fff; box-shadow: 0 0 6px rgba(0,0,0,.5); pointer-events: none; }
+.ba input[type=range] { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; margin: 0; cursor: ew-resize; }
+.tag { position: absolute; top: 8px; background: rgba(0,0,0,.6); color: #fff; font-size: 12px; font-weight: 700; padding: 3px 8px; border-radius: 99px; pointer-events: none; }
+.tag.l { left: 8px; } .tag.r { right: 8px; }
+.evo-single { position: relative; max-width: 260px; margin: 0 auto; }
+.evo-single img { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 12px; display: block; }
+.evo-single .tag { left: 8px; }
+.up-btn { display: flex; align-items: center; justify-content: center; margin: 0; color: var(--text); text-align: center; }
+.tl-week { padding: 10px 0; border-bottom: 1px solid var(--line); }
+.tl-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 6px; }
+.tl-ph { position: relative; padding: 0; border: 0; border-radius: 10px; overflow: hidden; aspect-ratio: 3 / 4; background: var(--bg); }
+.tl-ph img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.tl-ph span { position: absolute; left: 0; right: 0; bottom: 0; font-size: 11px; color: #fff; background: rgba(0,0,0,.45); padding: 2px; text-align: center; }
+.tl-ph.empty { display: flex; align-items: center; justify-content: center; border: 1px dashed var(--line); }
+.tl-ph.empty span { position: static; background: none; color: var(--muted); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { display: inline-flex; align-items: center; gap: 4px; margin: 0; padding: 6px 10px; border: 1px solid var(--line); border-radius: 99px; color: var(--text); font-size: 13px; }
+.chip input { width: auto; }
+.banner-prev { width: 100%; border-radius: 10px; margin: 10px 0; display: block; }

@@ -214,7 +214,7 @@ function viewHoje() {
     preso: `<div class="tip warn"><b>Intestino preso</b> (média ${r1(t.gut.avg)}): meta de fibra +5 g e água +500 ml. Priorize fibra solúvel com bastante água: aveia, chia/linhaça hidratadas, psyllium, kiwi, ameixa seca, mamão, feijão. Aumente a fibra aos poucos.</div>`,
     solto: `<div class="tip warn"><b>Intestino solto</b> (média ${r1(t.gut.avg)}): fibra −5 g (corte principalmente casca/folhas cruas/farelos), mantenha fibra solúvel (aveia, banana, batata) e reponha água +500 ml. Se persistir mais de 2 dias ou tiver sangue/febre, procure um médico.</div>`
   }[t.gut.state];
-  return `
+  return `${homeBanner()}
   <section class="card">
     <div class="row" style="justify-content:space-between"><span class="phase" style="flex:0 0 auto">${esc(t.phase.name)}</span>
       <span class="muted" style="text-align:right">muda em ${dleft} dia(s) → ${esc(next.name)}</span></div>
@@ -566,13 +566,13 @@ async function handleBarcode(code) {
 function render() {
   $("#dateSel").value = curDate;
   document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("on", b.dataset.tab === tab));
-  const v = { hoje: viewHoje, diario: viewDiario, corpo: viewCorpo, ciclo: viewCiclo, perfil: viewPerfil }[tab];
+  const v = { hoje: viewHoje, diario: viewDiario, corpo: viewCorpo, fotos: viewFotos, ciclo: viewCiclo, perfil: viewPerfil }[tab];
   $("#view").innerHTML = v();
   if (tab === "diario") { renderResults(""); renderPick(); }
 }
 const val = (id) => $("#" + id)?.value ?? "";
 
-document.addEventListener("click", (ev) => {
+document.addEventListener("click", async (ev) => {
   const t = ev.target.closest("button, [data-pick]"); if (!t) return;
   const ds = t.dataset;
   if (ds.tab) { tab = ds.tab; pick = null; render(); window.scrollTo(0, 0); return; }
@@ -637,11 +637,14 @@ document.addEventListener("click", (ev) => {
       save(); render(); alert("Perfil salvo."); break;
     }
     case "exp": {
+      t.disabled = true;
+      const photos = await photosForExport().catch(() => []);
+      t.disabled = false;
       const a = document.createElement("a");
-      a.href = URL.createObjectURL(new Blob([JSON.stringify(S, null, 2)], { type: "application/json" }));
+      a.href = URL.createObjectURL(new Blob([JSON.stringify({ ...S, photos }, null, 2)], { type: "application/json" }));
       a.download = `macronutri-backup-${TODAY}.json`; a.click(); break;
     }
-    case "reset": if (confirm("Apagar TODOS os dados deste aparelho?")) { S = structuredClone(DEFAULT); save(); render(); } break;
+    case "reset": if (confirm("Apagar TODOS os dados deste aparelho (inclusive as fotos)?")) { S = structuredClone(DEFAULT); save(); await photoDB.clear().catch(() => {}); await loadPhotos(); render(); } break;
   }
 });
 document.addEventListener("input", (ev) => {
@@ -664,7 +667,13 @@ document.addEventListener("change", (ev) => {
   if (id === "dateSel") { curDate = ev.target.value || TODAY; pick = null; render(); }
   if (id === "imp") {
     const file = ev.target.files[0]; if (!file) return;
-    file.text().then((txt) => { const d = JSON.parse(txt); if (!d.profile || !d.cycle) throw new Error("arquivo inválido"); localStorage.setItem(KEY, JSON.stringify(d)); S = load(); render(); alert("Dados importados."); })
+    file.text().then(async (txt) => {
+      const d = JSON.parse(txt); if (!d.profile || !d.cycle) throw new Error("arquivo inválido");
+      const { photos, ...rest } = d;
+      localStorage.setItem(KEY, JSON.stringify(rest)); S = load();
+      if (photos) await importPhotos(photos);
+      render(); alert("Dados importados" + (photos?.length ? ` (${photos.length} fotos)` : "") + ".");
+    })
       .catch((e) => alert("Falha ao importar: " + e.message));
   }
 });
@@ -677,3 +686,4 @@ document.addEventListener("keydown", (ev) => {
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")) navigator.serviceWorker.register("sw.js").catch(() => {});
 if (!localStorage.getItem(KEY)) tab = "perfil";
 render();
+loadPhotos().then(() => { if (tab === "hoje" || tab === "fotos") render(); });
