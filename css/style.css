@@ -123,3 +123,17 @@ svg.chart { width: 100%; height: auto; display: block; }
 .chip { display: inline-flex; align-items: center; gap: 4px; margin: 0; padding: 6px 10px; border: 1px solid var(--line); border-radius: 99px; color: var(--text); font-size: 13px; }
 .chip input { width: auto; }
 .banner-prev { width: 100%; border-radius: 10px; margin: 10px 0; display: block; }
+.mini-ban { position: relative; height: 128px; border-radius: 12px; overflow: hidden; background: var(--bg); cursor: zoom-in; margin-top: 10px; }
+.mb-slide { position: absolute; inset: 0; display: flex; gap: 12px; align-items: center; opacity: 0; transition: opacity .7s ease; padding-right: 10px; }
+.mb-slide.on { opacity: 1; }
+.mb-slide img { height: 100%; aspect-ratio: 3 / 4; object-fit: cover; flex: 0 0 auto; }
+.mb-info { display: flex; flex-direction: column; gap: 3px; font-size: 13px; min-width: 0; }
+.mb-info b { font-size: 17px; }
+.mb-delta { font-weight: 700; }
+.mb-dots { position: absolute; right: 10px; bottom: 9px; display: flex; gap: 5px; }
+.mb-dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--line); }
+.mb-dots i.on { background: var(--brand); }
+.mb-hint { position: absolute; right: 10px; top: 8px; font-size: 11px; color: var(--muted); }
+@media (prefers-reduced-motion: reduce) { .mb-slide { transition: none; } }
+.banner-prev { width: 60%; margin: 10px auto; cursor: zoom-in; transition: width .25s; }
+.banner-prev.big { width: 100%; cursor: zoom-out; }

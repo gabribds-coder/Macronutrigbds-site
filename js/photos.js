@@ -31,7 +31,7 @@ const photoDB = (() => {
 
 let PHOTOS = []; // {id, week, date, pose, blob, url}
 let photosReady = false;
-const fotoUI = { pose: "frente", a: null, b: null, cmp: 50, banner: null, bannerUrl: null, sel: null, upWeek: null };
+const fotoUI = { rot: 0, big: false, pose: "frente", a: null, b: null, cmp: 50, banner: null, bannerUrl: null, sel: null, upWeek: null };
 
 async function loadPhotos() {
   try {
@@ -121,15 +121,36 @@ function homeBanner() {
       <p class="muted">Registre suas fotos (frente, lado e costas) antes de iniciar o ciclo. Toda semana, uma nova — o app monta o comparativo da sua evolução.</p>
       <button class="btn" data-tab="fotos">Tirar foto do antes</button></section>`;
   }
-  const first = ws[0], last = ws[ws.length - 1];
-  const strip = ws.map((w) => { const p = anyPhotoFor(w); return `<figure><img src="${p.url}" alt="${weekLabel(w)}" loading="lazy"><figcaption>${weekLabel(w)}</figcaption></figure>`; }).join("");
-  const A = bodyAt(anyPhotoFor(first).date), B = bodyAt(anyPhotoFor(last).date);
-  const delta = ws.length > 1 && A.kg && B.kg ? `<span class="muted">${weekLabel(first)} → ${weekLabel(last)}: <b>${B.kg - A.kg > 0 ? "+" : ""}${r1(B.kg - A.kg)} kg</b>${A.bf && B.bf ? ` · gordura ${B.bf - A.bf > 0 ? "+" : ""}${r1(B.bf - A.bf)}%` : ""}</span>` : "";
   const due = !PHOTOS.some((p) => p.week === weekOf(curDate));
   return `<section class="card"><div class="row" style="justify-content:space-between"><h2 style="margin:0">Sua evolução</h2><button class="btn sm sec" data-tab="fotos" style="flex:0 0 auto">Ver fotos</button></div>
-    <div class="evo-strip" data-tab-go="fotos">${strip}</div>${delta}
+    ${miniBanner("frente")}
     ${due ? `<div class="tip ok" style="margin-bottom:0">Ainda não há foto da <b>${weekLabel(weekOf(curDate))}</b>. <button class="linkbtn" data-tab="fotos">Registrar agora</button></div>` : ""}</section>`;
 }
+
+// Banner rotativo compacto: uma semana por vez, troca sozinho a cada 3,5 s
+function miniBanner(pose) {
+  const ws = weeksWithPhotos(); if (!ws.length) return "";
+  const first = anyPhotoFor(ws[0]), A = bodyAt(first.date), n = ws.length, cur = fotoUI.rot % n;
+  const slides = ws.map((w, i) => {
+    const p = photoFor(w, pose) || anyPhotoFor(w), B = bodyAt(p.date);
+    const info = [fmtDate(p.date), B.kg ? r1(B.kg) + " kg" : "", B.bf ? r1(B.bf) + "% gord." : ""].filter(Boolean).join(" · ");
+    const d = i > 0 && A.kg && B.kg ? B.kg - A.kg : null;
+    return `<div class="mb-slide ${i === cur ? "on" : ""}"><img src="${p.url}" alt="${weekLabel(w)}"><div class="mb-info"><b>${weekLabel(w)}</b><span class="muted">${info}</span>${d != null ? `<span class="mb-delta" style="color:${d <= 0 ? "var(--fib)" : "var(--fat)"}">${d > 0 ? "+" : ""}${r1(d)} kg desde ${weekLabel(ws[0]) === "Antes" ? "o Antes" : weekLabel(ws[0])}</span>` : ""}</div></div>`;
+  }).join("");
+  return `<div class="mini-ban" data-ftexpand="1" role="button" tabindex="0" aria-label="Evolução: toque para ampliar">${slides}
+    ${n > 1 ? `<div class="mb-dots">${ws.map((_, i) => `<i class="${i === cur ? "on" : ""}"></i>`).join("")}</div>` : ""}<span class="mb-hint">toque para ampliar</span></div>`;
+}
+setInterval(() => {
+  if (document.hidden) return;
+  const bans = document.querySelectorAll(".mini-ban"); if (!bans.length) return;
+  fotoUI.rot++;
+  bans.forEach((b) => {
+    const sl = b.querySelectorAll(".mb-slide"); if (sl.length < 2) return;
+    const i = fotoUI.rot % sl.length;
+    sl.forEach((x, k) => x.classList.toggle("on", k === i));
+    b.querySelectorAll(".mb-dots i").forEach((x, k) => x.classList.toggle("on", k === i));
+  });
+}, 3500);
 
 function viewFotos() {
   if (!photosReady) return `<section class="card"><p class="muted">Carregando fotos…</p></section>`;
@@ -162,11 +183,12 @@ function viewFotos() {
   const sel = bannerSel();
 
   return `
-  <section class="card">
-    <h2>Comparativo da evolução</h2>
-    <div class="seg">${POSES.map(([k, l]) => `<button data-ftpose="${k}" class="${fotoUI.pose === k ? "on" : ""}">${l}</button>`).join("")}</div>
+  <section class="card" id="ftCmpCard">
+    <div class="row" style="justify-content:space-between"><h2 style="margin:0">Comparativo da evolução</h2>${fotoUI.big && ws.length ? `<button class="btn sm sec" id="ftShrink" style="flex:0 0 auto">Reduzir</button>` : ""}</div>
+    <div class="seg" style="margin-top:10px">${POSES.map(([k, l]) => `<button data-ftpose="${k}" class="${fotoUI.pose === k ? "on" : ""}">${l}</button>`).join("")}</div>
+    ${!fotoUI.big && ws.length ? miniBanner(fotoUI.pose) : `
     ${ws.length >= 2 ? `<div class="grid2" style="margin-bottom:10px"><div><label>De</label><select id="ftA">${opts(a)}</select></div><div><label>Para</label><select id="ftB">${opts(b)}</select></div></div>` : ""}
-    ${compare}
+    ${compare}`}
   </section>
 
   <section class="card">
@@ -183,7 +205,7 @@ function viewFotos() {
     <p class="muted">Escolha as semanas (até 4) e gere uma imagem lado a lado.</p>
     <div class="chips">${ws.map((w) => `<label class="chip"><input type="checkbox" data-ftsel="${w}" ${sel.includes(w) ? "checked" : ""}> ${weekLabel(w)}</label>`).join("")}</div>
     <div class="row" style="margin-top:10px"><button class="btn" id="ftMake">Gerar banner (${POSES.find((p) => p[0] === fotoUI.pose)[1]})</button></div>
-    ${fotoUI.bannerUrl ? `<img class="banner-prev" src="${fotoUI.bannerUrl}" alt="Banner de evolução">
+    ${fotoUI.bannerUrl ? `<img class="banner-prev" src="${fotoUI.bannerUrl}" alt="Banner de evolução (toque para ampliar)" title="Toque para ampliar">
       <div class="row"><button class="btn" id="ftShare">Compartilhar</button><button class="btn sec" id="ftSave">Baixar</button></div>` : ""}
   </section>` : ""}
 
@@ -260,8 +282,11 @@ async function importPhotos(list) {
 
 // ---------- Eventos ----------
 document.addEventListener("click", async (ev) => {
-  const t = ev.target.closest("button, [data-tab-go]"); if (!t) return;
+  if (ev.target.classList?.contains("banner-prev")) { ev.target.classList.toggle("big"); return; }
+  const t = ev.target.closest("button, [data-tab-go], [data-ftexpand]"); if (!t) return;
   const ds = t.dataset;
+  if (ds.ftexpand) { fotoUI.big = true; tab = "fotos"; render(); $("#ftCmpCard")?.scrollIntoView({ block: "start" }); window.scrollBy(0, -70); return; }
+  if (t.id === "ftShrink") { fotoUI.big = false; render(); return; }
   if (ds.tabGo) { tab = ds.tabGo; render(); window.scrollTo(0, 0); return; }
   if (ds.ftpose) { fotoUI.pose = ds.ftpose; render(); return; }
   if (ds.ftview) { openViewer(ds.ftview); return; }
@@ -301,4 +326,7 @@ document.addEventListener("change", async (ev) => {
     render();
   }
 });
-document.addEventListener("keydown", (ev) => { if (ev.key === "Escape") closeViewer(); });
+document.addEventListener("keydown", (ev) => {
+  if (ev.key === "Escape") closeViewer();
+  if ((ev.key === "Enter" || ev.key === " ") && ev.target.dataset?.ftexpand) { ev.preventDefault(); ev.target.click(); }
+});
