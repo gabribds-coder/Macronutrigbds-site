@@ -266,7 +266,7 @@ function viewDiario() {
   <section class="card">
     <h2>Adicionar alimento</h2>
     <p class="muted">Liberdade total: escolha qualquer alimento. O app mostra quanto ainda cabe no seu dia.</p>
-    <input id="q" placeholder="Buscar (ex: frango, arroz, banana)" autocomplete="off">
+    <div class="row"><input id="q" placeholder="Buscar (ex: frango, arroz, banana)" autocomplete="off"><button class="btn" id="scanBtn" aria-label="Ler código de barras">${ICON_BARCODE} Código</button></div>
     <div class="results" id="res"></div>
     <div id="pickBox"></div>
   </section>
@@ -284,25 +284,32 @@ function viewDiario() {
   <section class="card"><h2>Refeições de ${fmtDate(curDate)}</h2>${byMeal || `<p class="muted">Nada registrado ainda.</p>`}
     ${L.foods.length ? `<div class="row" style="margin-top:10px"><button class="btn sm sec" id="copyPrev">Copiar refeições de ontem</button></div>` : `<div class="row" style="margin-top:10px"><button class="btn sm sec" id="copyPrev">Copiar refeições de ontem</button></div>`}
   </section>
-  <section class="card">
+  <section class="card" id="cfCard">
     <h2>Cadastrar alimento personalizado</h2>
-    <p class="muted">Use o rótulo do produto. Valores por 100 g.</p>
-    <label>Nome</label><input id="cfName">
-    <div class="grid3">
-      <div><label>kcal</label><input id="cfK" type="number" step="any"></div>
-      <div><label>Proteína</label><input id="cfP" type="number" step="any"></div>
-      <div><label>Carbo</label><input id="cfC" type="number" step="any"></div>
-      <div><label>Gordura</label><input id="cfF" type="number" step="any"></div>
-      <div><label>Fibra</label><input id="cfFib" type="number" step="any"></div>
+    <div class="row"><p class="muted" style="margin:0">Leia o código de barras ou digite os valores do rótulo.</p><button class="btn sm" id="scanBtn2">${ICON_BARCODE} Ler código</button></div>
+    ${cfDraft.msg ? `<div class="tip ${cfDraft.msgType || "ok"}">${cfDraft.msg}</div>` : ""}
+    <label>Nome</label><input id="cfName" value="${esc(cfDraft.name ?? "")}">
+    <div class="grid2">
+      <div><label>Código de barras</label><input id="cfBarcode" inputmode="numeric" value="${esc(cfDraft.barcode ?? "")}"></div>
+      <div><label>Porção (g ou ml)</label><input id="cfServing" type="number" step="any" value="${esc(cfDraft.serving ?? "")}"></div>
     </div>
-    <div class="row" style="margin-top:10px"><button class="btn" id="cfSave">Salvar alimento</button></div>
-    ${S.customFoods.length ? `<h3>Seus alimentos</h3><ul class="list">${S.customFoods.map((f) => `<li><span>${esc(f.name)} <span class="muted">${f.kcal} kcal/100 g</span></span><button class="x" data-delcf="${f.id}">×</button></li>`).join("")}</ul>` : ""}
+    <label>Os valores abaixo são por</label>
+    <select id="cfBasis"><option value="100" ${cfDraft.basis !== "porcao" ? "selected" : ""}>100 g / 100 ml</option><option value="porcao" ${cfDraft.basis === "porcao" ? "selected" : ""}>porção (informada acima)</option></select>
+    <div class="grid3">
+      <div><label>kcal</label><input id="cfK" type="number" step="any" value="${esc(cfDraft.kcal ?? "")}"></div>
+      <div><label>Proteína</label><input id="cfP" type="number" step="any" value="${esc(cfDraft.p ?? "")}"></div>
+      <div><label>Carbo</label><input id="cfC" type="number" step="any" value="${esc(cfDraft.c ?? "")}"></div>
+      <div><label>Gordura</label><input id="cfF" type="number" step="any" value="${esc(cfDraft.f ?? "")}"></div>
+      <div><label>Fibra</label><input id="cfFib" type="number" step="any" value="${esc(cfDraft.fib ?? "")}"></div>
+    </div>
+    <div class="row" style="margin-top:10px"><button class="btn" id="cfSave">${cfDraft.fromScan ? "Salvar e adicionar ao dia" : "Salvar alimento"}</button>${cfDraft.name || cfDraft.barcode ? `<button class="btn sec" id="cfClear">Limpar</button>` : ""}</div>
+    ${S.customFoods.length ? `<h3>Seus alimentos</h3><ul class="list">${S.customFoods.map((f) => `<li><span>${esc(f.name)} <span class="muted">${f.kcal} kcal/100 g${f.barcode ? ` · ${esc(f.barcode)}` : ""}</span></span><button class="x" data-delcf="${f.id}">×</button></li>`).join("")}</ul>` : ""}
   </section>`;
 }
 function renderResults(q) {
   const box = $("#res"); if (!box) return;
   const nq = norm(q.trim());
-  const list = allFoods().filter((f) => !nq || norm(f.name).includes(nq)).slice(0, 40);
+  const list = allFoods().filter((f) => !nq || norm(f.name).includes(nq) || f.barcode === q.trim()).slice(0, 40);
   box.innerHTML = list.map((f) => `<div data-pick="${f.id}"><b>${esc(f.name)}</b><br><span class="muted">${f.kcal} kcal · P ${f.p} · C ${f.c} · G ${f.f} · Fib ${f.fib} (100 g)</span></div>`).join("") || `<div class="muted">Nada encontrado. Cadastre abaixo como alimento personalizado.</div>`;
 }
 function renderPick() {
@@ -449,6 +456,112 @@ function viewPerfil() {
   <p class="muted" style="text-align:center">Ferramenta educacional. Não substitui nutricionista/médico — especialmente com doença renal, diabetes ou distúrbios intestinais.</p>`;
 }
 
+// ---------- Leitor de código de barras ----------
+const ICON_BARCODE = `<svg width="18" height="14" viewBox="0 0 18 14" aria-hidden="true" style="vertical-align:-2px"><g fill="currentColor"><rect x="0" width="2" height="14"/><rect x="3" width="1" height="14"/><rect x="5" width="2" height="14"/><rect x="8" width="1" height="14"/><rect x="10" width="3" height="14"/><rect x="14" width="1" height="14"/><rect x="16" width="2" height="14"/></g></svg>`;
+const CF_FIELDS = { cfName: "name", cfBarcode: "barcode", cfServing: "serving", cfK: "kcal", cfP: "p", cfC: "c", cfF: "f", cfFib: "fib" };
+let cfDraft = {};
+let scan = null;
+function syncDraft() { for (const [id, k] of Object.entries(CF_FIELDS)) { const el = $("#" + id); if (el) cfDraft[k] = el.value; } const b = $("#cfBasis"); if (b) cfDraft.basis = b.value; }
+const scanStatus = (msg) => { const el = $("#scanMsg"); if (el) el.textContent = msg; };
+function loadScript(src) {
+  return new Promise((ok, fail) => { const s = document.createElement("script"); s.src = src; s.onload = ok; s.onerror = () => fail(new Error("falha ao carregar " + src)); document.head.appendChild(s); });
+}
+async function openScanner() {
+  if (scan) return;
+  syncDraft();
+  const ov = document.createElement("div");
+  ov.className = "scan-ov"; ov.id = "scanOv";
+  ov.innerHTML = `<div class="scan-box">
+    <div class="scan-cam"><video id="scanVideo" playsinline muted></video><div class="scan-line"></div></div>
+    <p id="scanMsg" class="scan-msg">Abrindo a câmera…</p>
+    <div class="row"><input id="scanManual" inputmode="numeric" placeholder="ou digite o código (EAN)"><button class="btn" id="scanGo">Buscar</button></div>
+    <button class="btn sec" id="scanClose" style="width:100%;margin-top:8px">Cancelar</button></div>`;
+  document.body.appendChild(ov);
+  scan = { stream: null, timer: null, reader: null, done: false };
+  const video = $("#scanVideo");
+  if (!navigator.mediaDevices?.getUserMedia) { scanStatus("Câmera indisponível neste navegador (é preciso abrir o app pelo endereço https). Digite o código abaixo."); return; }
+  const constraints = { audio: false, video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } } };
+  const onCode = (raw) => {
+    const code = String(raw).replace(/\D/g, "");
+    if (!scan || scan.done || code.length < 8) return;
+    scan.done = true; navigator.vibrate?.(80); closeScanner(); handleBarcode(code);
+  };
+  try {
+    let native = false;
+    if ("BarcodeDetector" in window) {
+      try { const f = await BarcodeDetector.getSupportedFormats(); native = f.includes("ean_13"); } catch {}
+    }
+    if (native) {
+      const det = new BarcodeDetector({ formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128"] });
+      const st = await navigator.mediaDevices.getUserMedia(constraints);
+      if (!scan) { st.getTracks().forEach((t) => t.stop()); return; } // fechado enquanto pedia permissão
+      scan.stream = st;
+      video.srcObject = scan.stream; await video.play();
+      scanStatus("Aponte para o código de barras do produto.");
+      const tick = async () => {
+        if (!scan || scan.done) return;
+        try { const r = await det.detect(video); if (r.length) return onCode(r[0].rawValue); } catch {}
+        scan && (scan.timer = setTimeout(tick, 200));
+      };
+      tick();
+    } else {
+      scanStatus("Carregando leitor…");
+      if (!window.ZXing) await loadScript("js/vendor/zxing.min.js");
+      if (!scan) return;
+      const Z = window.ZXing, hints = new Map();
+      hints.set(Z.DecodeHintType.POSSIBLE_FORMATS, [Z.BarcodeFormat.EAN_13, Z.BarcodeFormat.EAN_8, Z.BarcodeFormat.UPC_A, Z.BarcodeFormat.UPC_E, Z.BarcodeFormat.CODE_128]);
+      scan.reader = new Z.BrowserMultiFormatReader(hints, 300);
+      scanStatus("Aponte para o código de barras do produto.");
+      await scan.reader.decodeFromConstraints(constraints, video, (res) => { if (res) onCode(res.getText()); });
+    }
+  } catch (e) {
+    const denied = e && (e.name === "NotAllowedError" || e.name === "SecurityError");
+    scanStatus(denied ? "Permissão da câmera negada. Libere a câmera para este site nas configurações do navegador, ou digite o código abaixo." : "Não foi possível abrir a câmera (" + (e?.message || e) + "). Digite o código abaixo.");
+  }
+}
+function closeScanner() {
+  if (!scan) return;
+  clearTimeout(scan.timer);
+  try { scan.reader?.reset(); } catch {}
+  scan.stream?.getTracks().forEach((t) => t.stop());
+  const v = $("#scanVideo"); v?.srcObject?.getTracks?.().forEach((t) => t.stop());
+  scan = null; $("#scanOv")?.remove();
+}
+const num = (x) => (x == null || x === "" || isNaN(Number(x)) ? "" : r1(Number(x)));
+async function handleBarcode(code) {
+  tab = "diario";
+  const mine = S.customFoods.find((f) => f.barcode === code);
+  if (mine) { // já cadastrado: vai direto para adicionar
+    pick = { id: mine.id, g: mine.serving || 100 }; render(); window.scrollTo(0, 0);
+    return;
+  }
+  cfDraft = { barcode: code, fromScan: true, msg: "Buscando produto " + esc(code) + "…" };
+  render(); $("#cfCard")?.scrollIntoView({ behavior: "smooth" });
+  try {
+    const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 10000);
+    const r = await fetch(`https://world.openfoodfacts.org/api/v2/product/${code}.json?fields=product_name,product_name_pt,brands,quantity,serving_quantity,nutriments`, { signal: ctl.signal });
+    clearTimeout(to);
+    const j = r.ok ? await r.json() : null;
+    const pr = j && j.status === 1 ? j.product : null;
+    if (!pr) throw Object.assign(new Error("nf"), { nf: true });
+    const nm = pr.nutriments || {};
+    const kcal = nm["energy-kcal_100g"] ?? (nm.energy_100g != null ? nm.energy_100g / 4.184 : null);
+    const name = [pr.product_name_pt || pr.product_name, pr.brands?.split(",")[0]].filter(Boolean).join(" - ");
+    cfDraft = { ...cfDraft, name: name || "", serving: num(pr.serving_quantity), basis: "100",
+      kcal: num(kcal), p: num(nm.proteins_100g), c: num(nm.carbohydrates_100g), f: num(nm.fat_100g), fib: num(nm.fiber_100g) };
+    const missing = ["kcal", "p", "c", "f"].filter((k) => cfDraft[k] === "");
+    cfDraft.msgType = missing.length ? "warn" : "ok";
+    cfDraft.msg = missing.length
+      ? "Produto encontrado, mas faltam dados nutricionais na base. Complete com o rótulo (valores por 100 g) e salve."
+      : "Produto encontrado na base Open Food Facts. <b>Confira com o rótulo</b> (dados colaborativos) e salve.";
+  } catch (e) {
+    cfDraft.msgType = "warn";
+    cfDraft.msg = e.nf ? "Produto não encontrado na base. Preencha nome e valores do rótulo — na próxima leitura ele será reconhecido."
+      : "Sem conexão para buscar o produto. Preencha os valores do rótulo — na próxima leitura ele será reconhecido.";
+  }
+  if (tab === "diario") { render(); $("#cfCard")?.scrollIntoView({ behavior: "smooth" }); }
+}
+
 // ---------- Render & eventos ----------
 function render() {
   $("#dateSel").value = curDate;
@@ -483,10 +596,23 @@ document.addEventListener("click", (ev) => {
       dayLog(curDate).foods.push(...prev.map((f) => ({ ...f }))); save(); render(); break;
     }
     case "cfSave": {
-      const name = val("cfName").trim(); if (!name) { alert("Informe o nome."); break; }
-      S.customFoods.unshift({ id: "c" + Date.now(), name, kcal: Number(val("cfK")) || 0, p: Number(val("cfP")) || 0, c: Number(val("cfC")) || 0, f: Number(val("cfF")) || 0, fib: Number(val("cfFib")) || 0, cat: "Personalizado" });
-      save(); render(); break;
+      syncDraft();
+      const d = cfDraft, name = (d.name || "").trim(); if (!name) { alert("Informe o nome."); break; }
+      const serving = Number(d.serving) || 0;
+      if (d.basis === "porcao" && !serving) { alert("Informe o tamanho da porção em gramas."); break; }
+      const k = d.basis === "porcao" ? 100 / serving : 1, n = (x) => r1((Number(x) || 0) * k);
+      const barcode = (d.barcode || "").replace(/\D/g, "");
+      if (barcode) S.customFoods = S.customFoods.filter((f) => f.barcode !== barcode); // atualiza se já existia
+      const food = { id: "c" + Date.now(), name, barcode, serving, kcal: n(d.kcal), p: n(d.p), c: n(d.c), f: n(d.f), fib: n(d.fib), cat: "Personalizado" };
+      S.customFoods.unshift(food);
+      const fromScan = d.fromScan; cfDraft = {}; save();
+      if (fromScan) { pick = { id: food.id, g: serving || 100 }; render(); window.scrollTo(0, 0); } else render();
+      break;
     }
+    case "cfClear": cfDraft = {}; render(); break;
+    case "scanBtn": case "scanBtn2": openScanner(); break;
+    case "scanClose": closeScanner(); break;
+    case "scanGo": { const code = val("scanManual").replace(/\D/g, ""); if (code.length < 8) { scanStatus("Digite um código com 8 a 14 números."); break; } closeScanner(); handleBarcode(code); break; }
     case "wSave": {
       const e = { kg: val("wKg"), bf: val("wBf"), waist: val("wWaist"), neck: val("wNeck"), hip: val("wHip") };
       if (!e.kg) { alert("Informe o peso."); break; }
@@ -521,6 +647,7 @@ document.addEventListener("click", (ev) => {
 document.addEventListener("input", (ev) => {
   const id = ev.target.id;
   if (id === "q") renderResults(ev.target.value);
+  if (CF_FIELDS[id]) cfDraft[CF_FIELDS[id]] = ev.target.value;
   if (id === "pg" && pick) { pick.g = ev.target.value; pick.meal = val("pm"); const pos = ev.target.selectionStart; renderPick(); const n = $("#pg"); n.focus(); try { n.setSelectionRange(pos, pos); } catch {} }
   const phi = ev.target.dataset?.phprot ?? ev.target.dataset?.phfat;
   if (phi != null) { // prévia ao vivo do carboidrato da fase
@@ -532,6 +659,7 @@ document.addEventListener("input", (ev) => {
 document.addEventListener("change", (ev) => {
   const id = ev.target.id;
   if (id === "pm" && pick) pick.meal = ev.target.value;
+  if (id === "cfBasis") cfDraft.basis = ev.target.value;
   if (id === "trained") { dayLog(curDate).trained = ev.target.checked; save(); render(); }
   if (id === "dateSel") { curDate = ev.target.value || TODAY; pick = null; render(); }
   if (id === "imp") {
@@ -540,7 +668,11 @@ document.addEventListener("change", (ev) => {
       .catch((e) => alert("Falha ao importar: " + e.message));
   }
 });
-document.addEventListener("keydown", (ev) => { if (ev.key === "Enter" && ev.target.id === "pg") $("#addFood")?.click(); });
+document.addEventListener("keydown", (ev) => {
+  if (ev.key === "Enter" && ev.target.id === "pg") $("#addFood")?.click();
+  if (ev.key === "Enter" && ev.target.id === "scanManual") $("#scanGo")?.click();
+  if (ev.key === "Escape" && scan) closeScanner();
+});
 
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")) navigator.serviceWorker.register("sw.js").catch(() => {});
 if (!localStorage.getItem(KEY)) tab = "perfil";
