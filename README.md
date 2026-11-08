@@ -2,7 +2,7 @@
 
 App web (PWA, funciona offline e pode ser instalado no celular) para:
 
-- **Ciclo de proteína isocalórico**: calorias fixas, proteína muda a cada 1–7 dias, carbo/gordura compensam.
+- **Ciclo de proteína isocalórico**: calorias fixas; proteína, gordura e carboidrato variam por fase (a cada 1–7 dias).
 - **Água diária dinâmica** conforme a fase do ciclo, treino e intestino.
 - **Fibra diária** (14 g/1000 kcal) ajustada pela escala de Bristol.
 - **Diário alimentar livre**: base TACO/USDA + alimentos personalizados.

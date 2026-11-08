@@ -83,3 +83,5 @@ svg.chart { width: 100%; height: auto; display: block; }
 .stat { background: var(--bg); border-radius: 10px; padding: 10px; }
 .stat b { display: block; font-size: 18px; }
 .stat span { font-size: 12px; color: var(--muted); }
+.phase-ed { border: 1px solid var(--line); border-radius: 12px; padding: 10px; margin-bottom: 8px; }
+.phase-ed .grid3 { grid-template-columns: repeat(3, 1fr); }

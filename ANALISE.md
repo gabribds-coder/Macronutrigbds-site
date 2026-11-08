@@ -21,20 +21,23 @@ ajusta suas calorias pelo seu resultado real).
 ## 2. Ciclo de proteína isocalórico — honestidade científica
 - **Não há estudo mostrando que ciclar proteína seja superior** a manter proteína constante.
   O que manda é a **média semanal** de proteína e o déficit calórico.
-- Ciclar **não atrapalha** desde que nenhuma fase fique abaixo de 1,6 g/kg — e ajuda na
-  adesão, variedade e flexibilidade alimentar. Por isso o app:
+- Ciclar **não atrapalha** desde que nenhuma fase fique abaixo de 1,6 g/kg de proteína e 0,5 g/kg
+  de gordura — e ajuda na adesão, variedade e flexibilidade alimentar. Por isso o app:
   - mantém as calorias **iguais todos os dias**;
-  - muda a proteína a cada N dias (você escolhe 1, 2, 3, 4 ou 7);
-  - compensa no **carboidrato** (se o carbo cair abaixo do mínimo, reduz gordura até o piso de 0,6 g/kg).
-- Padrão: Alta 2,6 → Moderada 2,2 → Base 1,8 g/kg (média 2,2 g/kg), 2 dias cada.
+  - muda a fase a cada N dias (você escolhe 1, 2, 3, 4 ou 7);
+  - cada fase define **proteína e gordura** (g/kg); o **carboidrato completa** as calorias
+    (se ficar abaixo do mínimo, reduz gordura até o piso).
+- Padrão (lógica clássica de ciclo de carboidrato): carbo baixo ⇄ gordura mais alta, carbo alto ⇄ gordura baixa.
 
-Exemplo (90 kg, 2340 kcal, gordura 0,8 g/kg = 72 g):
+Exemplo (90 kg, 2340 kcal):
 
 | Fase | Proteína | Carbo | Gordura | Água |
 |---|---|---|---|---|
-| Alta (2,6) | 234 g | 189 g | 72 g | ~4,2 L |
-| Moderada (2,2) | 198 g | 225 g | 72 g | ~3,9 L |
-| Base (1,8) | 162 g | 261 g | 72 g | ~3,4 L |
+| P Alta · C Baixo (P 2,6 · G 1,0) | 234 g | 149 g | 90 g | ~3,8 L |
+| Moderado (P 2,2 · G 0,8) | 198 g | 225 g | 72 g | ~3,5 L |
+| P Base · C Alto (P 1,8 · G 0,6) | 162 g | 302 g | 54 g | ~3,3 L |
+
+Dica: alinhe os dias de carbo alto com os treinos mais pesados.
 
 ## 3. Água por fase
 `35 ml × peso` + `7 ml por grama de proteína acima de 1,6 g/kg` (mais ureia para o rim

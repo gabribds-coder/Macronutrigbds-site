@@ -21,11 +21,12 @@ const KEY = "macronutri-gbds-v1";
 const DEFAULT = {
   profile: { sex: "m", age: 30, height: 175, weight: 80, bf: "", activity: 1.55, goalPct: -15, refWeight: "atual", goalWeight: "", trainMin: 60 },
   cycle: {
-    start: TODAY, daysPerPhase: 2, fatGkg: 0.8, fatMinGkg: 0.6, carbMin: 50,
+    start: TODAY, daysPerPhase: 2, fatMinGkg: 0.5, carbMin: 50,
+    // Cada fase define proteína e gordura (g/kg); o carboidrato completa as calorias.
     phases: [
-      { name: "Proteína Alta", prot: 2.6 },
-      { name: "Proteína Moderada", prot: 2.2 },
-      { name: "Proteína Base", prot: 1.8 }
+      { name: "P Alta · C Baixo", prot: 2.6, fat: 1.0 },
+      { name: "Moderado", prot: 2.2, fat: 0.8 },
+      { name: "P Base · C Alto", prot: 1.8, fat: 0.6 }
     ]
   },
   useAdaptive: true, manualKcal: "",
@@ -40,6 +41,12 @@ function load() {
     const raw = localStorage.getItem(KEY);
     if (!raw) return structuredClone(DEFAULT);
     const s = JSON.parse(raw);
+    if (s.cycle?.phases) { // migração da versão anterior (gordura única para todas as fases)
+      const old = ["Proteína Alta", "Proteína Moderada", "Proteína Base"];
+      if (s.cycle.phases.length === 3 && s.cycle.phases.every((p, i) => p.name === old[i] && p.fat == null)) s.cycle.phases = structuredClone(DEFAULT.cycle.phases);
+      s.cycle.phases.forEach((p) => { if (p.fat == null) p.fat = Number(s.cycle.fatGkg) || 0.8; });
+      delete s.cycle.fatGkg;
+    }
     return { ...structuredClone(DEFAULT), ...s, profile: { ...DEFAULT.profile, ...s.profile }, cycle: { ...DEFAULT.cycle, ...s.cycle } };
   } catch { return structuredClone(DEFAULT); }
 }
@@ -136,7 +143,7 @@ function targets(d) {
   const { kcal, src } = kcalTarget();
   const ph = c.phases[phaseIndex(d)];
   const P = ph.prot * w;
-  let F = Number(c.fatGkg) * w;
+  let F = Number(ph.fat ?? 0.8) * w;
   let C = (kcal - 4 * P - 9 * F) / 4;
   const notes = [];
   if (C < Number(c.carbMin)) { // tira de gordura até o piso para preservar um mínimo de carbo
@@ -155,6 +162,13 @@ function targets(d) {
   const fib = Math.min(50, Math.max(20, fibBase + gut.fib));
   return { kcal, src, phase: ph, idx: phaseIndex(d), P: r0(P), C: r0(C), F: r0(F), water: Math.round(water / 50) * 50, fib: r0(fib), gut, notes, trained };
 }
+function phaseMacros(ph) {
+  const w = refWeight(), { kcal } = kcalTarget();
+  const P = ph.prot * w, F = ph.fat * w, C = Math.max(0, (kcal - 4 * P - 9 * F) / 4);
+  return { kcal, P: r0(P), F: r0(F), C: r0(C), Ckg: r1(C / w) };
+}
+const phCarbHtml = (m) => `<b style="font-size:15px;display:inline;color:${m.C < Number(S.cycle.carbMin) ? "var(--prot)" : "inherit"}">${m.C} g</b> <span>${m.Ckg} g/kg</span>`;
+const phSumHtml = (m) => `${m.kcal} kcal → P ${m.P} g · C ${m.C} g · G ${m.F} g`;
 function consumed(d) {
   return (S.logs[d]?.foods || []).reduce((a, f) => ({ kcal: a.kcal + f.kcal, p: a.p + f.p, c: a.c + f.c, f: a.f + f.f, fib: a.fib + f.fib }), { kcal: 0, p: 0, c: 0, f: 0, fib: 0 });
 }
@@ -202,7 +216,7 @@ function viewHoje() {
   }[t.gut.state];
   return `
   <section class="card">
-    <div class="row" style="justify-content:space-between"><span class="phase" style="flex:0 0 auto">${esc(t.phase.name)} · ${t.phase.prot} g/kg</span>
+    <div class="row" style="justify-content:space-between"><span class="phase" style="flex:0 0 auto">${esc(t.phase.name)}</span>
       <span class="muted" style="text-align:right">muda em ${dleft} dia(s) → ${esc(next.name)}</span></div>
     <div class="grid2" style="margin-top:12px">
       <div><div class="muted">Restam</div><div class="big">${r0(left)} kcal</div><div class="muted">meta ${t.kcal} kcal (${t.src})</div></div>
@@ -365,7 +379,7 @@ function viewCiclo() {
   return `
   <section class="card">
     <h2>Próximos 14 dias</h2>
-    <p class="muted">Calorias iguais todos os dias; o que muda é a distribuição. Quando a proteína sobe, o carboidrato desce na mesma proporção calórica.</p>
+    <p class="muted">Calorias iguais todos os dias; o que muda é a distribuição. Cada fase define proteína e gordura; o carboidrato completa as calorias do dia.</p>
     <div class="scroll"><table><thead><tr><th>Dia</th><th style="text-align:left">Fase</th><th>kcal</th><th>P</th><th>C</th><th>G</th><th>Água L</th><th>Fibra</th></tr></thead><tbody>${rows.join("")}</tbody></table></div>
   </section>
   <section class="card">
@@ -373,14 +387,20 @@ function viewCiclo() {
     <div class="grid2">
       <div><label>Dias em cada fase</label><select id="cyLen">${[1, 2, 3, 4, 7].map((n) => `<option value="${n}" ${Number(c.daysPerPhase) === n ? "selected" : ""}>${n} dia(s)</option>`).join("")}</select></div>
       <div><label>Início do ciclo</label><input id="cyStart" type="date" value="${c.start}"></div>
-      <div><label>Gordura (g/kg)</label><input id="cyFat" type="number" step="0.05" value="${c.fatGkg}"></div>
       <div><label>Gordura mínima (g/kg)</label><input id="cyFatMin" type="number" step="0.05" value="${c.fatMinGkg}"></div>
       <div><label>Carboidrato mínimo (g)</label><input id="cyCarbMin" type="number" step="5" value="${c.carbMin}"></div>
     </div>
-    <h3>Fases (proteína em g/kg)</h3>
-    ${c.phases.map((p, i) => `<div class="row" style="margin-bottom:6px"><input data-phname="${i}" value="${esc(p.name)}"><input data-phprot="${i}" type="number" step="0.1" min="1.2" max="3.5" value="${p.prot}" style="flex:0 0 90px">${c.phases.length > 2 ? `<button class="btn sm sec" data-phdel="${i}">×</button>` : ""}</div>`).join("")}
+    <h3>Fases</h3>
+    ${c.phases.map((p, i) => { const m = phaseMacros(p); return `<div class="phase-ed">
+      <div class="row"><input data-phname="${i}" value="${esc(p.name)}" aria-label="Nome da fase">${c.phases.length > 2 ? `<button class="btn sm sec" data-phdel="${i}" aria-label="Remover fase">×</button>` : ""}</div>
+      <div class="grid3">
+        <div><label style="color:var(--prot)">Proteína g/kg</label><input data-phprot="${i}" type="number" step="0.1" min="1.2" max="3.5" value="${p.prot}"></div>
+        <div><label style="color:var(--fat)">Gordura g/kg</label><input data-phfat="${i}" type="number" step="0.05" min="0.3" max="2" value="${p.fat}"></div>
+        <div><label style="color:var(--carb)">Carbo (resto)</label><div class="stat" style="padding:9px 10px" data-phc="${i}">${phCarbHtml(m)}</div></div>
+      </div>
+      <div class="muted" data-phsum="${i}">${phSumHtml(m)}</div></div>`; }).join("")}
     <div class="row" style="margin-top:8px"><button class="btn sm sec" id="phAdd">+ Fase</button><button class="btn" id="cySave">Salvar ciclo</button></div>
-    <div class="tip ok">Recomendado: manter TODAS as fases ≥ 1,6 g/kg (abaixo disso há perda de resultado em massa magra) e a média do ciclo entre 2,0–2,4 g/kg em déficit.</div>
+    <div class="tip ok">Recomendado: proteína ≥ 1,6 g/kg em TODAS as fases (média 2,0–2,4 g/kg em déficit) e gordura ≥ 0,5 g/kg (saúde hormonal). Faça os dias de carbo alto coincidirem com os treinos mais pesados (pernas/costas) e os de carbo baixo com descanso ou treinos leves — ajuste o "Início do ciclo" para alinhar.</div>
   </section>`;
 }
 
@@ -473,13 +493,16 @@ document.addEventListener("click", (ev) => {
       S.weights[curDate] = e; save(); render(); break;
     }
     case "wDel": delete S.weights[curDate]; save(); render(); break;
-    case "phAdd": S.cycle.phases.push({ name: "Nova fase", prot: 2.0 }); save(); render(); break;
+    case "phAdd": S.cycle.phases.push({ name: "Nova fase", prot: 2.0, fat: 0.8 }); save(); render(); break;
     case "cySave": {
       const c = S.cycle;
       c.daysPerPhase = Number(val("cyLen")); c.start = val("cyStart") || TODAY;
-      c.fatGkg = Number(val("cyFat")) || 0.8; c.fatMinGkg = Number(val("cyFatMin")) || 0.6; c.carbMin = Number(val("cyCarbMin")) || 0;
-      c.phases = c.phases.map((p, i) => ({ name: $(`[data-phname="${i}"]`).value || p.name, prot: Number($(`[data-phprot="${i}"]`).value) || p.prot }));
-      if (c.phases.some((p) => p.prot < 1.6)) alert("Atenção: alguma fase está abaixo de 1,6 g/kg de proteína.");
+      c.fatMinGkg = Number(val("cyFatMin")) || 0.5; c.carbMin = Number(val("cyCarbMin")) || 0;
+      c.phases = c.phases.map((p, i) => ({ name: $(`[data-phname="${i}"]`).value || p.name, prot: Number($(`[data-phprot="${i}"]`).value) || p.prot, fat: Number($(`[data-phfat="${i}"]`).value) || p.fat }));
+      const warn = [];
+      if (c.phases.some((p) => p.prot < 1.6)) warn.push("alguma fase está abaixo de 1,6 g/kg de proteína");
+      if (c.phases.some((p) => p.fat < 0.5)) warn.push("alguma fase está abaixo de 0,5 g/kg de gordura");
+      if (warn.length) alert("Atenção: " + warn.join(" e ") + ".");
       save(); render(); break;
     }
     case "pSave": {
@@ -499,6 +522,11 @@ document.addEventListener("input", (ev) => {
   const id = ev.target.id;
   if (id === "q") renderResults(ev.target.value);
   if (id === "pg" && pick) { pick.g = ev.target.value; pick.meal = val("pm"); const pos = ev.target.selectionStart; renderPick(); const n = $("#pg"); n.focus(); try { n.setSelectionRange(pos, pos); } catch {} }
+  const phi = ev.target.dataset?.phprot ?? ev.target.dataset?.phfat;
+  if (phi != null) { // prévia ao vivo do carboidrato da fase
+    const m = phaseMacros({ prot: Number($(`[data-phprot="${phi}"]`).value) || 0, fat: Number($(`[data-phfat="${phi}"]`).value) || 0 });
+    $(`[data-phc="${phi}"]`).innerHTML = phCarbHtml(m); $(`[data-phsum="${phi}"]`).textContent = phSumHtml(m);
+  }
   if (id === "pGoal") $("#gLbl").textContent = ev.target.value;
 });
 document.addEventListener("change", (ev) => {
